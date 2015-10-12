@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -44,8 +45,8 @@ func main() {
 
 	fileType := getFileType(contents)
 	fmt.Println(fileType)
-
-	generateTumblrGif(fileType)
+	generateGif([]string{"540x540", "405x405", "270x270"}, 2, "tumblr", fileType)
+	generateGif([]string{"640x640", "480x480", "320x320"}, 3, "twitter", fileType)
 }
 
 func check(e error) {
@@ -72,6 +73,7 @@ func run(command string, args []string) {
 	}
 	if stderr.Len() > 0 {
 		fmt.Printf("STDERR: %q\n", stderr.String())
+		panic(stderr.String())
 	}
 
 	check(err)
@@ -99,10 +101,10 @@ func rm(path string) {
 	run("rm", args)
 }
 
-func mogrifyTumblr(path string) {
+func mogrify(dimensionArg, path string) {
 	pathGlob, err := filepath.Glob(path)
 	check(err)
-	args := []string{"-resize", "540x800^", "-format", "gif"}
+	args := []string{"-resize", dimensionArg + "^", "-format", "gif"}
 
 	fmt.Println("%> mogrify " + strings.Join(args, " ") + " " + path)
 
@@ -138,9 +140,39 @@ func gifsicle(delay int, colors int, inputPath string, outputPath string) {
 
 	if stderr.Len() > 0 {
 		fmt.Printf("STDERR: %q\n", stderr.String())
+		panic(stderr.String())
 	}
 
 	check(err)
+}
+
+func duk(path string) int {
+	fmt.Println("%> du -sh " + path)
+
+	cmd := exec.Command("du", "-k", path)
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+
+	if stdout.Len() > 0 {
+		fmt.Print(stdout.String())
+		size, err := strconv.Atoi(strings.Split(stdout.String(), "\t")[0])
+		check(err)
+
+		return size
+	}
+
+	if stderr.Len() > 0 {
+		fmt.Printf("STDERR: %q\n", stderr.String())
+		panic(stderr.String())
+	}
+
+	check(err)
+
+	panic("No output from du.")
 }
 
 func getFileType(files []os.FileInfo) string {
@@ -164,13 +196,31 @@ func getImages(files []os.FileInfo, fileType string) []os.FileInfo {
 	return result
 }
 
-func generateTumblrGif(fileType string) {
-	rm(tempDir + "/*")
-	cp(inputDir+"/frame*."+fileType, tempDir)
-	mogrifyTumblr(tempDir + "/frame*." + fileType)
+func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fileType string) {
+	success := false
+	for i := 0; i < len(dimensionAttempts); i++ {
+		rm(tempDir + "/*")
+		cp(inputDir+"/frame*."+fileType, tempDir)
 
-	outputFilename := outputDir + "/tumblr.gif"
-	gifsicle(3, 256, tempDir+"/frame*.gif", outputFilename)
+		dimensions := dimensionAttempts[i]
+		mogrify(dimensions, tempDir+"/frame*."+fileType)
+
+		for colors := 256; colors > 16; colors -= 32 {
+			outputFilepath := outputDir + "/" + target + dimensions + "-" + strconv.Itoa(colors) + ".gif"
+
+			gifsicle(3, colors, tempDir+"/frame*.gif", outputFilepath)
+
+			kb := duk(outputFilepath)
+			if kb < sizeLimitMb*1024 {
+				success = true
+				break
+			}
+		}
+	}
+
+	if !success {
+		fmt.Println("WARN: Failed to generate small enough file for " + target + ".")
+	}
 
 	rm(tempDir + "/*")
 }
