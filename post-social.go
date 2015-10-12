@@ -47,6 +47,7 @@ func main() {
 	fmt.Println(fileType)
 	generateGif([]string{"540x540", "405x405", "270x270"}, 2, "tumblr", fileType)
 	generateGif([]string{"640x640", "480x480", "320x320"}, 3, "twitter", fileType)
+	generateMovie("400x400", "facebook", fileType)
 }
 
 func check(e error) {
@@ -101,15 +102,16 @@ func rm(path string) {
 	run("rm", args)
 }
 
-func mogrify(dimensionArg, path string) {
+func mogrify(dimensionArg, outputFileType, path string) {
 	pathGlob, err := filepath.Glob(path)
 	check(err)
-	args := []string{"-resize", dimensionArg + "^", "-format", "gif"}
+	args := []string{"-resize", dimensionArg + "^", "-format", outputFileType}
 
 	fmt.Println("%> mogrify " + strings.Join(args, " ") + " " + path)
 
 	args = append(args, pathGlob...)
 	run("mogrify", args)
+	fmt.Println("mogrify completed")
 }
 
 func gifsicle(delay int, colors int, inputPath string, outputPath string) {
@@ -144,6 +146,31 @@ func gifsicle(delay int, colors int, inputPath string, outputPath string) {
 	}
 
 	check(err)
+}
+
+func ffmpeg(inputPath, outputPath string) {
+	rm(outputPath)
+
+	var startNumber int
+	for startNumber = 0; startNumber < 1000; startNumber++ {
+		if _, err := os.Stat(fmt.Sprintf(inputPath, startNumber)); err != nil {
+			break
+		}
+	}
+
+	args := []string{
+		"-loglevel", "panic",
+		"-f", "image2",
+		"-start_number", strconv.Itoa(startNumber),
+		"-i", inputPath,
+		"-vcodec", "libx264",
+		"-pix_fmt", "yuv444p",
+		outputPath,
+	}
+
+	fmt.Println("%> ffmpeg " + strings.Join(args, " "))
+
+	run("ffmpeg", args)
 }
 
 func duk(path string) int {
@@ -203,7 +230,7 @@ func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fil
 		cp(inputDir+"/frame*."+fileType, tempDir)
 
 		dimensions := dimensionAttempts[i]
-		mogrify(dimensions, tempDir+"/frame*."+fileType)
+		mogrify(dimensions, "gif", tempDir+"/frame*."+fileType)
 
 		for colors := 256; colors > 16; colors -= 32 {
 			outputFilepath := outputDir + "/" + target + dimensions + "-" + strconv.Itoa(colors) + ".gif"
@@ -221,6 +248,18 @@ func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fil
 	if !success {
 		fmt.Println("WARN: Failed to generate small enough file for " + target + ".")
 	}
+
+	rm(tempDir + "/*")
+}
+
+func generateMovie(dimensions string, target string, fileType string) {
+	rm(tempDir + "/*")
+	cp(inputDir+"/frame*."+fileType, tempDir)
+
+	mogrify(dimensions, fileType, tempDir+"/frame*."+fileType)
+	ffmpeg(
+		tempDir+"/frame%04d."+fileType,
+		outputDir+"/"+target+dimensions+".mp4")
 
 	rm(tempDir + "/*")
 }
