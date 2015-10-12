@@ -158,6 +158,8 @@ func ffmpeg(inputPath, outputPath string) {
 		}
 	}
 
+	tempMoviePath := tempDir + "/temp.mp4"
+
 	args := []string{
 		"-loglevel", "panic",
 		"-f", "image2",
@@ -165,6 +167,27 @@ func ffmpeg(inputPath, outputPath string) {
 		"-i", inputPath,
 		"-vcodec", "libx264",
 		"-pix_fmt", "yuv444p",
+		tempMoviePath,
+	}
+
+	fmt.Println("%> ffmpeg " + strings.Join(args, " "))
+
+	run("ffmpeg", args)
+
+	playlistPath := tempDir + "/playlist.txt"
+	outputFile, err := os.Create(playlistPath)
+	check(err)
+	defer outputFile.Close()
+
+	for i := 0; i < 5; i++ {
+		outputFile.WriteString(fmt.Sprintf("file '%s'\n", "temp.mp4"))
+	}
+
+	args = []string{
+		"-loglevel", "panic",
+		"-f", "concat",
+		"-i", playlistPath,
+		"-c", "copy",
 		outputPath,
 	}
 
@@ -256,10 +279,10 @@ func generateMovie(dimensions string, target string, fileType string) {
 	rm(tempDir + "/*")
 	cp(inputDir+"/frame*."+fileType, tempDir)
 
-	mogrify(dimensions, fileType, tempDir+"/frame*."+fileType)
+	//mogrify(dimensions, fileType, tempDir+"/frame*."+fileType)
 	ffmpeg(
 		tempDir+"/frame%04d."+fileType,
 		outputDir+"/"+target+dimensions+".mp4")
 
-	rm(tempDir + "/*")
+	//rm(tempDir + "/*")
 }
