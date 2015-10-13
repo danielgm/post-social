@@ -279,10 +279,10 @@ func generateMovie(dimensions string, target string, fileType string) {
 	rm(tempDir + "/*")
 	cp(inputDir+"/frame*."+fileType, tempDir)
 
-	//mogrify(dimensions, fileType, tempDir+"/frame*."+fileType)
+	mogrify(dimensions, "png", tempDir+"/frame*."+fileType)
 	ffmpeg(
-		tempDir+"/frame%04d."+fileType,
+		tempDir+"/frame%04d.png",
 		outputDir+"/"+target+dimensions+".mp4")
 
-	//rm(tempDir + "/*")
+	rm(tempDir + "/*")
 }
