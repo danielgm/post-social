@@ -52,7 +52,7 @@ func main() {
 
 func check(e error) {
 	if e != nil {
-		panic(e)
+		fmt.Printf("ERROR: %q\n", e)
 	}
 }
 
@@ -74,14 +74,13 @@ func run(command string, args []string) {
 	}
 	if stderr.Len() > 0 {
 		fmt.Printf("STDERR: %q\n", stderr.String())
-		panic(stderr.String())
 	}
 
 	check(err)
 }
 
 func cp(from string, to string) {
-	fmt.Println("%> cp " + from + " " + to)
+	fmt.Println("###> cp " + from + " " + to)
 	fromGlob, err := filepath.Glob(from)
 	check(err)
 
@@ -93,7 +92,7 @@ func cp(from string, to string) {
 }
 
 func rm(path string) {
-	fmt.Println("%> rm " + path)
+	fmt.Println("###> rm " + path)
 
 	pathGlob, err := filepath.Glob(path)
 	check(err)
@@ -107,7 +106,7 @@ func mogrify(dimensionArg, outputFileType, path string) {
 	check(err)
 	args := []string{"-resize", dimensionArg + "^", "-format", outputFileType}
 
-	fmt.Println("%> mogrify " + strings.Join(args, " ") + " " + path)
+	fmt.Println("###> mogrify " + strings.Join(args, " ") + " " + path)
 
 	args = append(args, pathGlob...)
 	run("mogrify", args)
@@ -123,7 +122,7 @@ func gifsicle(delay int, colors int, inputPath string, outputPath string) {
 		"--loop",
 		fmt.Sprintf("--colors=%d", colors)}
 
-	fmt.Println("%> gifsicle " + strings.Join(args, " ") + " " + inputPath)
+	fmt.Println("###> gifsicle " + strings.Join(args, " ") + " " + inputPath)
 
 	args = append(args, pathGlob...)
 
@@ -142,7 +141,6 @@ func gifsicle(delay int, colors int, inputPath string, outputPath string) {
 
 	if stderr.Len() > 0 {
 		fmt.Printf("STDERR: %q\n", stderr.String())
-		panic(stderr.String())
 	}
 
 	check(err)
@@ -164,13 +162,14 @@ func ffmpeg(inputPath, outputPath string) {
 		"-loglevel", "panic",
 		"-f", "image2",
 		"-start_number", strconv.Itoa(startNumber),
+		"-framerate", "10",
 		"-i", inputPath,
 		"-vcodec", "libx264",
 		"-pix_fmt", "yuv444p",
 		tempMoviePath,
 	}
 
-	fmt.Println("%> ffmpeg " + strings.Join(args, " "))
+	fmt.Println("###> ffmpeg " + strings.Join(args, " "))
 
 	run("ffmpeg", args)
 
@@ -191,13 +190,13 @@ func ffmpeg(inputPath, outputPath string) {
 		outputPath,
 	}
 
-	fmt.Println("%> ffmpeg " + strings.Join(args, " "))
+	fmt.Println("###> ffmpeg " + strings.Join(args, " "))
 
 	run("ffmpeg", args)
 }
 
 func duk(path string) int {
-	fmt.Println("%> du -sh " + path)
+	fmt.Println("###> du -sh " + path)
 
 	cmd := exec.Command("du", "-k", path)
 
@@ -217,7 +216,6 @@ func duk(path string) int {
 
 	if stderr.Len() > 0 {
 		fmt.Printf("STDERR: %q\n", stderr.String())
-		panic(stderr.String())
 	}
 
 	check(err)
@@ -258,7 +256,7 @@ func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fil
 		for colors := 256; colors > 16; colors -= 32 {
 			outputFilepath := outputDir + "/" + target + dimensions + "-" + strconv.Itoa(colors) + ".gif"
 
-			gifsicle(3, colors, tempDir+"/frame*.gif", outputFilepath)
+			gifsicle(11, colors, tempDir+"/frame*.gif", outputFilepath)
 
 			kb := duk(outputFilepath)
 			if kb < sizeLimitMb*1024 {
