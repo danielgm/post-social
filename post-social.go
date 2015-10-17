@@ -31,7 +31,7 @@ func main() {
 
 	inputDir = os.Args[1]
 
-	outputDir = inputDir + "/post-social"
+	outputDir = inputDir + "/_post-social"
 	if _, err := os.Stat(outputDir); err == nil {
 		rm(outputDir)
 	}
