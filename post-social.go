@@ -146,17 +146,13 @@ func gifsicle(delay int, colors int, inputPath string, outputPath string) {
 	check(err)
 }
 
-func ffmpeg(inputPath, outputPath string) {
-	rm(outputPath)
-
+func ffmpegImage2(inputPath, outputPath string) {
 	var startNumber int
 	for startNumber = 0; startNumber < 1000; startNumber++ {
 		if _, err := os.Stat(fmt.Sprintf(inputPath, startNumber)); err != nil {
 			break
 		}
 	}
-
-	tempMoviePath := tempDir + "/temp.mp4"
 
 	args := []string{
 		"-loglevel", "panic",
@@ -166,23 +162,16 @@ func ffmpeg(inputPath, outputPath string) {
 		"-i", inputPath,
 		"-vcodec", "libx264",
 		"-pix_fmt", "yuv444p",
-		tempMoviePath,
+		outputPath,
 	}
 
 	fmt.Println("###> ffmpeg " + strings.Join(args, " "))
 
 	run("ffmpeg", args)
+}
 
-	playlistPath := tempDir + "/playlist.txt"
-	outputFile, err := os.Create(playlistPath)
-	check(err)
-	defer outputFile.Close()
-
-	for i := 0; i < 5; i++ {
-		outputFile.WriteString(fmt.Sprintf("file '%s'\n", "temp.mp4"))
-	}
-
-	args = []string{
+func ffmpegPlaylist(playlistPath string, outputPath string) {
+	args := []string{
 		"-loglevel", "panic",
 		"-f", "concat",
 		"-i", playlistPath,
@@ -193,6 +182,19 @@ func ffmpeg(inputPath, outputPath string) {
 	fmt.Println("###> ffmpeg " + strings.Join(args, " "))
 
 	run("ffmpeg", args)
+}
+
+func generateRepeatPlaylist(inputPath string, playlistPath string) {
+	outputFile, err := os.Create(playlistPath)
+	check(err)
+	defer outputFile.Close()
+
+	inputPath, err = filepath.Rel(filepath.Dir(playlistPath), inputPath)
+	check(err)
+
+	for i := 0; i < 5; i++ {
+		outputFile.WriteString(fmt.Sprintf("file '%s'\n", inputPath))
+	}
 }
 
 func duk(path string) int {
@@ -277,9 +279,16 @@ func generateMovie(dimensions string, target string, fileType string) {
 	rm(tempDir + "/*")
 	cp(inputDir+"/frame*."+fileType, tempDir)
 
+	clipPath := tempDir + "/temp.mp4"
+	playlistPath := tempDir + "/playlist.txt"
+
 	mogrify(dimensions, "png", tempDir+"/frame*."+fileType)
-	ffmpeg(
+	ffmpegImage2(
 		tempDir+"/frame%04d.png",
+		clipPath)
+	generateRepeatPlaylist(clipPath, playlistPath)
+	ffmpegPlaylist(
+		playlistPath,
 		outputDir+"/"+target+dimensions+".mp4")
 
 	rm(tempDir + "/*")
