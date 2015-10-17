@@ -63,18 +63,9 @@ func runArgs(command string, args ...string) {
 func run(command string, args []string) {
 	cmd := exec.Command(command, args...)
 
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-
-	if stdout.Len() > 0 {
-		fmt.Printf("STDOUT: %q\n", stdout.String())
-	}
-	if stderr.Len() > 0 {
-		fmt.Printf("STDERR: %q\n", stderr.String())
-	}
 
 	check(err)
 }
