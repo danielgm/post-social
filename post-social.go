@@ -149,7 +149,7 @@ func ffmpegImage2(inputPath, outputPath string) {
 		"-loglevel", "panic",
 		"-f", "image2",
 		"-start_number", strconv.Itoa(startNumber),
-		"-framerate", "10",
+		"-framerate", "14",
 		"-i", inputPath,
 		"-vcodec", "libx264",
 		"-pix_fmt", "yuv444p",
@@ -185,6 +185,34 @@ func generateRepeatPlaylist(inputPath string, playlistPath string) {
 
 	for i := 0; i < 5; i++ {
 		outputFile.WriteString(fmt.Sprintf("file '%s'\n", inputPath))
+	}
+}
+
+func createReverseFrames(inputGlob string) {
+	inputPaths, err := filepath.Glob(inputGlob)
+	check(err)
+
+	// FIXME: Hard-coded shit.
+	re := regexp.MustCompile("frame(\\d+).png")
+
+	lastNumber := -1
+	for _, inputPath := range inputPaths {
+		matches := re.FindAllStringSubmatch(inputPath, -1)
+		if len(matches) > 0 && len(matches[0]) > 0 {
+			currNumber, err := strconv.Atoi(matches[0][1])
+			if err == nil {
+				if currNumber > lastNumber {
+					lastNumber = currNumber
+				}
+			}
+		}
+	}
+
+	for i, _ := range inputPaths {
+		lastNumber++
+
+		// FIXME: Hard-coded shit.
+		cp(inputPaths[len(inputPaths)-1-i], fmt.Sprintf(tempDir+"/frame%04d.png", lastNumber))
 	}
 }
 
@@ -273,7 +301,11 @@ func generateMovie(dimensions string, target string, fileType string) {
 	clipPath := tempDir + "/temp.mp4"
 	playlistPath := tempDir + "/playlist.txt"
 
-	mogrify(dimensions, "png", tempDir+"/frame*."+fileType)
+	framesPath := tempDir + "/frame*." + fileType
+	mogrify(dimensions, "png", framesPath)
+
+	createReverseFrames(tempDir + "/frame*.png")
+
 	ffmpegImage2(
 		tempDir+"/frame%04d.png",
 		clipPath)
