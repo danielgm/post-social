@@ -188,12 +188,12 @@ func generateRepeatPlaylist(inputPath string, playlistPath string) {
 	}
 }
 
-func createReverseFrames(inputGlob string) {
+func createReverseFrames(inputGlob string, fileType string) {
 	inputPaths, err := filepath.Glob(inputGlob)
 	check(err)
 
 	// FIXME: Hard-coded shit.
-	re := regexp.MustCompile("frame(\\d+).png")
+	re := regexp.MustCompile("frame(\\d+)." + fileType)
 
 	lastNumber := -1
 	for _, inputPath := range inputPaths {
@@ -212,7 +212,7 @@ func createReverseFrames(inputGlob string) {
 		lastNumber++
 
 		// FIXME: Hard-coded shit.
-		cp(inputPaths[len(inputPaths)-1-i], fmt.Sprintf(tempDir+"/frame%04d.png", lastNumber))
+		cp(inputPaths[len(inputPaths)-1-i], fmt.Sprintf(tempDir+"/frame%04d."+fileType, lastNumber))
 	}
 }
 
@@ -271,6 +271,8 @@ func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fil
 		rm(tempDir + "/*")
 		cp(inputDir+"/frame*."+fileType, tempDir)
 
+		createReverseFrames(tempDir+"/frame*."+fileType, fileType)
+
 		dimensions := dimensionAttempts[i]
 		mogrify(dimensions, "gif", tempDir+"/frame*."+fileType)
 
@@ -282,7 +284,6 @@ func generateGif(dimensionAttempts []string, sizeLimitMb int, target string, fil
 			kb := duk(outputFilepath)
 			if kb < sizeLimitMb*1024 {
 				success = true
-				break
 			}
 		}
 	}
@@ -304,7 +305,7 @@ func generateMovie(dimensions string, target string, fileType string) {
 	framesPath := tempDir + "/frame*." + fileType
 	mogrify(dimensions, "png", framesPath)
 
-	createReverseFrames(tempDir + "/frame*.png")
+	createReverseFrames(tempDir+"/frame*.png", "png")
 
 	ffmpegImage2(
 		tempDir+"/frame%04d.png",
